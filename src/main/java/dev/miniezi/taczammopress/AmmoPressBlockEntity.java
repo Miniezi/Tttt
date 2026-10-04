@@ -111,7 +111,16 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
         return 5;
     }
     public SideMode getSideMode(int relative){return sideModes[Math.floorMod(relative,6)];}
-    public void cycleSideMode(int relative){int i=Math.floorMod(relative,6);sideModes[i]=sideModes[i].next();setChanged();}
+    public void cycleSideMode(int relative){
+        int i=Math.floorMod(relative,6);
+        sideModes[i]=sideModes[i].next();
+        setChanged();
+        if(level!=null && !level.isClientSide){
+            level.invalidateCapabilities(worldPosition);
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
     public @Nullable IItemHandler getAutomationHandler(@Nullable Direction side){
         if(side==null)return inputAutomation;
         return switch(sideModes[relativeIndex(side)]){case INPUT->inputAutomation;case OUTPUT->outputAutomation;default->null;};
