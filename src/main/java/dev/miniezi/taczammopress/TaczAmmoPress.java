@@ -34,8 +34,8 @@ public final class TaczAmmoPress {
         modBus.addListener(this::registerCapabilities); modBus.addListener(this::addCreative);
     }
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, AMMO_PRESS_BE.get(), (be, side) -> be.getAutomationHandler());
-        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, AMMO_PRESS_BE.get(), (be, side) -> be.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, AMMO_PRESS_BE.get(), (be, side) -> be.getAutomationHandler(side));
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, AMMO_PRESS_BE.get(), (be, side) -> be.getEnergyStorage(side));
     }
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) event.accept(AMMO_PRESS_ITEM);
