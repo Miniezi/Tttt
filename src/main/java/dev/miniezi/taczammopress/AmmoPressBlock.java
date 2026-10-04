@@ -31,7 +31,8 @@ public final class AmmoPressBlock extends BaseEntityBlock {
     }
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            MenuProvider provider = getMenuProvider(state, level, pos); if (provider != null) serverPlayer.openMenu(provider);
+            MenuProvider provider = getMenuProvider(state, level, pos);
+            if (provider != null) serverPlayer.openMenu(provider, buf -> buf.writeBlockPos(pos));
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
