@@ -2,6 +2,7 @@ package dev.miniezi.taczammopress;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -41,14 +42,32 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
     private final EnergyStorage energy=new EnergyStorage(100000,10000,10000){
         @Override public int receiveEnergy(int maxReceive,boolean simulate){int r=super.receiveEnergy(maxReceive,simulate);if(r>0&&!simulate)setChanged();return r;}
     };
-    private final IItemHandler automation=new IItemHandler(){
-        private int real(int slot){return slot+1;}
-        @Override public int getSlots(){return 9;}
+    private final SideMode[] sideModes = {SideMode.INPUT, SideMode.OUTPUT, SideMode.NONE, SideMode.ENERGY, SideMode.NONE, SideMode.NONE};
+    private final IItemHandler inputAutomation=new IItemHandler(){
+        private int real(int slot){return slot+INPUT_FIRST;}
+        @Override public int getSlots(){return 6;}
         @Override public ItemStack getStackInSlot(int slot){return items.getStackInSlot(real(slot));}
-        @Override public ItemStack insertItem(int slot,ItemStack stack,boolean simulate){return slot>=6?stack:items.insertItem(real(slot),stack,simulate);}
-        @Override public ItemStack extractItem(int slot,int amount,boolean simulate){return slot<6?ItemStack.EMPTY:items.extractItem(real(slot),amount,simulate);}
+        @Override public ItemStack insertItem(int slot,ItemStack stack,boolean simulate){return items.insertItem(real(slot),stack,simulate);}
+        @Override public ItemStack extractItem(int slot,int amount,boolean simulate){return ItemStack.EMPTY;}
         @Override public int getSlotLimit(int slot){return items.getSlotLimit(real(slot));}
-        @Override public boolean isItemValid(int slot,ItemStack stack){return slot<6&&items.isItemValid(real(slot),stack);}
+        @Override public boolean isItemValid(int slot,ItemStack stack){return items.isItemValid(real(slot),stack);}
+    };
+    private final IItemHandler outputAutomation=new IItemHandler(){
+        private int real(int slot){return slot+OUTPUT_FIRST;}
+        @Override public int getSlots(){return 3;}
+        @Override public ItemStack getStackInSlot(int slot){return items.getStackInSlot(real(slot));}
+        @Override public ItemStack insertItem(int slot,ItemStack stack,boolean simulate){return stack;}
+        @Override public ItemStack extractItem(int slot,int amount,boolean simulate){return items.extractItem(real(slot),amount,simulate);}
+        @Override public int getSlotLimit(int slot){return items.getSlotLimit(real(slot));}
+        @Override public boolean isItemValid(int slot,ItemStack stack){return false;}
+    };
+    private final IEnergyStorage energyInput=new IEnergyStorage(){
+        @Override public int receiveEnergy(int maxReceive,boolean simulate){return energy.receiveEnergy(maxReceive,simulate);}
+        @Override public int extractEnergy(int maxExtract,boolean simulate){return 0;}
+        @Override public int getEnergyStored(){return energy.getEnergyStored();}
+        @Override public int getMaxEnergyStored(){return energy.getMaxEnergyStored();}
+        @Override public boolean canExtract(){return false;}
+        @Override public boolean canReceive(){return true;}
     };
     private record Material(String tag,int count){}
     private record AmmoRecipe(int output,List<Material> materials){}
@@ -82,7 +101,25 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
         RECIPES.put("tacz:rpg_rocket",r(3,m("c:ingots/iron",3),m("c:ingots/copper",30),m("c:gunpowders",12)));
     }
     public AmmoPressBlockEntity(BlockPos pos,BlockState state){super(TaczAmmoPress.AMMO_PRESS_BE.get(),pos,state);}
-    public IItemHandler getAutomationHandler(){return automation;} public IEnergyStorage getEnergyStorage(){return energy;}
+    private int relativeIndex(Direction side){
+        if(side==Direction.UP)return 0;
+        if(side==Direction.DOWN)return 1;
+        Direction front=getBlockState().getValue(AmmoPressBlock.FACING);
+        if(side==front)return 2;
+        if(side==front.getOpposite())return 3;
+        if(side==front.getCounterClockWise())return 4;
+        return 5;
+    }
+    public SideMode getSideMode(int relative){return sideModes[Math.floorMod(relative,6)];}
+    public void cycleSideMode(int relative){int i=Math.floorMod(relative,6);sideModes[i]=sideModes[i].next();setChanged();}
+    public @Nullable IItemHandler getAutomationHandler(@Nullable Direction side){
+        if(side==null)return inputAutomation;
+        return switch(sideModes[relativeIndex(side)]){case INPUT->inputAutomation;case OUTPUT->outputAutomation;default->null;};
+    }
+    public @Nullable IEnergyStorage getEnergyStorage(@Nullable Direction side){
+        if(side==null)return energyInput;
+        return sideModes[relativeIndex(side)]==SideMode.ENERGY?energyInput:null;
+    }
     public static void tick(Level level,BlockPos pos,BlockState state,AmmoPressBlockEntity be){
         if(level.isClientSide)return; AmmoRecipe recipe=be.currentRecipe();
         if(recipe==null||!be.hasMaterials(recipe)||!be.canFitOutput(recipe.output)||be.energy.getEnergyStored()<ENERGY_PER_TICK){if(be.progress!=0){be.progress=0;be.setChanged();}return;}
@@ -98,8 +135,8 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
     private boolean consumeMaterials(AmmoRecipe recipe){if(!hasMaterials(recipe))return false;for(Material material:recipe.materials){int left=material.count;for(int i=INPUT_FIRST;i<=INPUT_LAST&&left>0;i++){ItemStack stack=items.getStackInSlot(i);if(!matches(stack,material))continue;int take=Math.min(left,stack.getCount());items.extractItem(i,take,false);left-=take;}}return true;}
     private boolean canFitOutput(int amount){ItemStack template=items.getStackInSlot(TEMPLATE);if(template.isEmpty())return false;int free=0;for(int i=OUTPUT_FIRST;i<=OUTPUT_LAST;i++){ItemStack out=items.getStackInSlot(i);if(out.isEmpty())free+=template.getMaxStackSize();else if(ItemStack.isSameItemSameComponents(out,template))free+=Math.max(0,out.getMaxStackSize()-out.getCount());}return free>=amount;}
     private void insertOutput(int amount){ItemStack template=items.getStackInSlot(TEMPLATE);int left=amount;for(int i=OUTPUT_FIRST;i<=OUTPUT_LAST&&left>0;i++){ItemStack out=items.getStackInSlot(i);if(!out.isEmpty()&&ItemStack.isSameItemSameComponents(out,template)){int add=Math.min(left,out.getMaxStackSize()-out.getCount());out.grow(add);left-=add;}}for(int i=OUTPUT_FIRST;i<=OUTPUT_LAST&&left>0;i++){if(!items.getStackInSlot(i).isEmpty())continue;int add=Math.min(left,template.getMaxStackSize());items.setStackInSlot(i,template.copyWithCount(add));left-=add;}}
-    @Override protected void saveAdditional(CompoundTag tag,HolderLookup.Provider registries){super.saveAdditional(tag,registries);tag.put("items",items.serializeNBT(registries));tag.put("energy",energy.serializeNBT(registries));tag.putInt("progress",progress);}
-    @Override protected void loadAdditional(CompoundTag tag,HolderLookup.Provider registries){super.loadAdditional(tag,registries);if(tag.contains("items"))items.deserializeNBT(registries,tag.getCompound("items"));if(tag.contains("energy"))energy.deserializeNBT(registries,tag.get("energy"));progress=tag.getInt("progress");}
+    @Override protected void saveAdditional(CompoundTag tag,HolderLookup.Provider registries){super.saveAdditional(tag,registries);tag.put("items",items.serializeNBT(registries));tag.put("energy",energy.serializeNBT(registries));tag.putInt("progress",progress);int[] modes=new int[6];for(int i=0;i<6;i++)modes[i]=sideModes[i].ordinal();tag.putIntArray("sideModes",modes);}
+    @Override protected void loadAdditional(CompoundTag tag,HolderLookup.Provider registries){super.loadAdditional(tag,registries);if(tag.contains("items"))items.deserializeNBT(registries,tag.getCompound("items"));if(tag.contains("energy"))energy.deserializeNBT(registries,tag.get("energy"));progress=tag.getInt("progress");int[] modes=tag.getIntArray("sideModes");if(modes.length==6)for(int i=0;i<6;i++)sideModes[i]=SideMode.byId(modes[i]);}
     @Override public int getContainerSize(){return 10;} @Override public boolean isEmpty(){for(int i=0;i<10;i++)if(!items.getStackInSlot(i).isEmpty())return false;return true;}
     @Override public ItemStack getItem(int slot){return items.getStackInSlot(slot);} @Override public ItemStack removeItem(int slot,int amount){return items.extractItem(slot,amount,false);}
     @Override public ItemStack removeItemNoUpdate(int slot){ItemStack s=items.getStackInSlot(slot);items.setStackInSlot(slot,ItemStack.EMPTY);return s;} @Override public void setItem(int slot,ItemStack stack){items.setStackInSlot(slot,stack);}
@@ -107,9 +144,15 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
     @Override public void clearContent(){for(int i=0;i<10;i++)items.setStackInSlot(i,ItemStack.EMPTY);} @Override public boolean canPlaceItem(int slot,ItemStack stack){return items.isItemValid(slot,stack);}
     @Override public Component getDisplayName(){return Component.translatable("container.tacz_ammo_press.ammo_press");}
     public ContainerData dataAccess(){return new ContainerData(){
-        @Override public int get(int index){return switch(index){case 0->progress;case 1->energy.getEnergyStored();case 2->energy.getMaxEnergyStored();default->0;};}
-        @Override public void set(int index,int value){if(index==0)progress=value;}
-        @Override public int getCount(){return 3;}
+        @Override public int get(int index){
+            if(index==0)return progress;
+            if(index==1)return energy.getEnergyStored();
+            if(index==2)return energy.getMaxEnergyStored();
+            if(index>=3&&index<9)return sideModes[index-3].ordinal();
+            return 0;
+        }
+        @Override public void set(int index,int value){if(index==0)progress=value;else if(index>=3&&index<9)sideModes[index-3]=SideMode.byId(value);}
+        @Override public int getCount(){return 9;}
     };}
     @Override public AbstractContainerMenu createMenu(int id,Inventory inventory,Player player){return new AmmoPressMenu(id,inventory,this,dataAccess());}
 }
