@@ -9,7 +9,7 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
     private static final int SIDE_X=214, SIDE_Y=25, SIDE_STEP=13;
     public AmmoPressScreen(AmmoPressMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 300;
+        imageWidth = 320;
         imageHeight = 195;
         inventoryLabelY = 101;
     }
@@ -19,7 +19,7 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
         g.fill(x, y, x+imageWidth, y+imageHeight, 0xFF20252B);
         g.fill(x+5, y+18, x+203, y+96, 0xFF2B323A);
         g.fill(x+7, y+103, x+201, y+191, 0xFF171B20);
-        g.fill(x+208, y+18, x+295, y+96, 0xFF171B20);
+        g.fill(x+208, y+18, x+315, y+96, 0xFF171B20);
 
         panel(g,x+11,y+27,38,47,0xFF34404A);
         panel(g,x+59,y+27,66,47,0xFF34404A);
@@ -63,7 +63,8 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
         for(int i=0;i<6;i++){
             SideMode mode=menu.sideMode(i);
             g.drawString(font,Component.translatable("gui.tacz_ammo_press.side."+keys[i]),230,17+i*SIDE_STEP,0xFFC7D0D6,false);
-            g.drawString(font,Component.translatable("gui.tacz_ammo_press.mode."+mode.name().toLowerCase()),258,17+i*SIDE_STEP,mode.color,false);
+            Component modeText=Component.translatable("gui.tacz_ammo_press.mode."+mode.name().toLowerCase());
+            g.drawString(font,modeText,312-font.width(modeText),17+i*SIDE_STEP,mode.color,false);
         }
     }
 
