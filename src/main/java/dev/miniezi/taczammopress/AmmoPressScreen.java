@@ -6,9 +6,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu> {
+    private static final int SIDE_X=214, SIDE_Y=25, SIDE_STEP=13;
     public AmmoPressScreen(AmmoPressMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 208;
+        imageWidth = 300;
         imageHeight = 195;
         inventoryLabelY = 101;
     }
@@ -18,6 +19,7 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
         g.fill(x, y, x+imageWidth, y+imageHeight, 0xFF20252B);
         g.fill(x+5, y+18, x+203, y+96, 0xFF2B323A);
         g.fill(x+7, y+103, x+201, y+191, 0xFF171B20);
+        g.fill(x+208, y+18, x+295, y+96, 0xFF171B20);
 
         panel(g,x+11,y+27,38,47,0xFF34404A);
         panel(g,x+59,y+27,66,47,0xFF34404A);
@@ -37,6 +39,13 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
         g.fill(x+151,y+86,x+190,y+92,0xFF111418);
         int progress=menu.progressScaled(37);
         if(progress>0)g.fill(x+152,y+87,x+152+progress,y+91,0xFF72D987);
+
+        for(int i=0;i<6;i++){
+            SideMode mode=menu.sideMode(i);
+            int sy=y+SIDE_Y+i*SIDE_STEP;
+            g.fill(x+SIDE_X,sy,x+SIDE_X+11,sy+11,0xFF080A0C);
+            g.fill(x+SIDE_X+2,sy+2,x+SIDE_X+9,sy+9,mode.color);
+        }
     }
 
     private static void panel(GuiGraphics g,int x,int y,int w,int h,int color){g.fill(x,y,x+w,y+h,0xFF111418);g.fill(x+1,y+1,x+w-1,y+h-1,color);}
@@ -49,6 +58,26 @@ public final class AmmoPressScreen extends AbstractContainerScreen<AmmoPressMenu
         g.drawString(font,Component.translatable("gui.tacz_ammo_press.output"),151,10,0xFF82E49A,false);
         g.drawString(font,Component.translatable("gui.tacz_ammo_press.energy",menu.energy(),menu.capacity()),12,72,0xFFB8C4CC,false);
         g.drawString(font,playerInventoryTitle,23,101,0xFFB8C4CC,false);
+        g.drawString(font,Component.translatable("gui.tacz_ammo_press.sides"),212,7,0xFFE8EEF2,false);
+        String[] keys={"top","bottom","front","back","left","right"};
+        for(int i=0;i<6;i++){
+            SideMode mode=menu.sideMode(i);
+            g.drawString(font,Component.translatable("gui.tacz_ammo_press.side."+keys[i]),230,17+i*SIDE_STEP,0xFFC7D0D6,false);
+            g.drawString(font,Component.translatable("gui.tacz_ammo_press.mode."+mode.name().toLowerCase()),258,17+i*SIDE_STEP,mode.color,false);
+        }
+    }
+
+    @Override public boolean mouseClicked(double mouseX,double mouseY,int button){
+        if(button==0){
+            for(int i=0;i<6;i++){
+                int x=leftPos+SIDE_X, y=topPos+SIDE_Y+i*SIDE_STEP;
+                if(mouseX>=x&&mouseX<x+12&&mouseY>=y&&mouseY<y+12){
+                    if(minecraft!=null&&minecraft.gameMode!=null)minecraft.gameMode.handleInventoryButtonClick(menu.containerId,100+i);
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX,mouseY,button);
     }
 
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partialTick){renderBackground(g,mouseX,mouseY,partialTick);super.render(g,mouseX,mouseY,partialTick);renderTooltip(g,mouseX,mouseY);}
