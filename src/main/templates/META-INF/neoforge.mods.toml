@@ -1,0 +1,33 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Miniezi + ChatGPT"
+description='''Automatic ammunition press for TaCZ with Mekanism automation.'''
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+[[dependencies.${mod_id}]]
+modId="tacz"
+type="required"
+versionRange="[1.1.8,)"
+ordering="AFTER"
+side="BOTH"
+[[dependencies.${mod_id}]]
+modId="mekanism"
+type="required"
+versionRange="[10.7.19,)"
+ordering="AFTER"
+side="BOTH"
