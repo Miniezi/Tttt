@@ -15,7 +15,7 @@ public final class AmmoPressMenu extends AbstractContainerMenu {
     private final ContainerData data;
 
     public AmmoPressMenu(int id, Inventory inventory, BlockPos pos) {
-        this(id, inventory, getContainer(inventory, pos), new SimpleContainerData(3));
+        this(id, inventory, getContainer(inventory, pos), new SimpleContainerData(9));
     }
 
     public AmmoPressMenu(int id, Inventory inventory, Container container, ContainerData data) {
@@ -45,6 +45,15 @@ public final class AmmoPressMenu extends AbstractContainerMenu {
     public int energyScaled(int pixels) { return data.get(1) * pixels / Math.max(1, data.get(2)); }
     public int energy() { return data.get(1); }
     public int capacity() { return data.get(2); }
+    public SideMode sideMode(int relative) { return SideMode.byId(data.get(3 + relative)); }
+
+    @Override public boolean clickMenuButton(Player player, int id) {
+        if(id>=100 && id<106 && container instanceof AmmoPressBlockEntity press) {
+            press.cycleSideMode(id-100);
+            return true;
+        }
+        return super.clickMenuButton(player,id);
+    }
 
     @Override public ItemStack quickMoveStack(Player player, int index) {
         Slot slot = slots.get(index);
