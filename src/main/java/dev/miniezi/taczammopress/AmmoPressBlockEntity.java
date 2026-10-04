@@ -13,7 +13,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.DispenserMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -30,25 +30,25 @@ import java.util.List;
 import java.util.Map;
 
 public final class AmmoPressBlockEntity extends BlockEntity implements Container, net.minecraft.world.MenuProvider {
-    private static final int TEMPLATE=0, INPUT_FIRST=1, INPUT_LAST=4, OUTPUT_FIRST=5, OUTPUT_LAST=7;
+    private static final int TEMPLATE=0, INPUT_FIRST=1, INPUT_LAST=6, OUTPUT_FIRST=7, OUTPUT_LAST=9;
     private static final int PROCESS_TICKS=100, ENERGY_PER_TICK=50;
     private int progress=0;
-    private final ItemStackHandler items=new ItemStackHandler(9) {
+    private final ItemStackHandler items=new ItemStackHandler(10) {
         @Override protected void onContentsChanged(int slot){setChanged();}
         @Override public boolean isItemValid(int slot,ItemStack stack){if(slot==TEMPLATE)return isTaczAmmo(stack);return slot>=INPUT_FIRST&&slot<=INPUT_LAST;}
         @Override public int getSlotLimit(int slot){return slot==TEMPLATE?1:super.getSlotLimit(slot);}
     };
-    private final EnergyStorage energy=new EnergyStorage(100000,10000,0){
+    private final EnergyStorage energy=new EnergyStorage(100000,10000,10000){
         @Override public int receiveEnergy(int maxReceive,boolean simulate){int r=super.receiveEnergy(maxReceive,simulate);if(r>0&&!simulate)setChanged();return r;}
     };
     private final IItemHandler automation=new IItemHandler(){
         private int real(int slot){return slot+1;}
-        @Override public int getSlots(){return 7;}
+        @Override public int getSlots(){return 9;}
         @Override public ItemStack getStackInSlot(int slot){return items.getStackInSlot(real(slot));}
-        @Override public ItemStack insertItem(int slot,ItemStack stack,boolean simulate){return slot>=4?stack:items.insertItem(real(slot),stack,simulate);}
-        @Override public ItemStack extractItem(int slot,int amount,boolean simulate){return slot<4?ItemStack.EMPTY:items.extractItem(real(slot),amount,simulate);}
+        @Override public ItemStack insertItem(int slot,ItemStack stack,boolean simulate){return slot>=6?stack:items.insertItem(real(slot),stack,simulate);}
+        @Override public ItemStack extractItem(int slot,int amount,boolean simulate){return slot<6?ItemStack.EMPTY:items.extractItem(real(slot),amount,simulate);}
         @Override public int getSlotLimit(int slot){return items.getSlotLimit(real(slot));}
-        @Override public boolean isItemValid(int slot,ItemStack stack){return slot<4&&items.isItemValid(real(slot),stack);}
+        @Override public boolean isItemValid(int slot,ItemStack stack){return slot<6&&items.isItemValid(real(slot),stack);}
     };
     private record Material(String tag,int count){}
     private record AmmoRecipe(int output,List<Material> materials){}
@@ -100,11 +100,16 @@ public final class AmmoPressBlockEntity extends BlockEntity implements Container
     private void insertOutput(int amount){ItemStack template=items.getStackInSlot(TEMPLATE);int left=amount;for(int i=OUTPUT_FIRST;i<=OUTPUT_LAST&&left>0;i++){ItemStack out=items.getStackInSlot(i);if(!out.isEmpty()&&ItemStack.isSameItemSameComponents(out,template)){int add=Math.min(left,out.getMaxStackSize()-out.getCount());out.grow(add);left-=add;}}for(int i=OUTPUT_FIRST;i<=OUTPUT_LAST&&left>0;i++){if(!items.getStackInSlot(i).isEmpty())continue;int add=Math.min(left,template.getMaxStackSize());items.setStackInSlot(i,template.copyWithCount(add));left-=add;}}
     @Override protected void saveAdditional(CompoundTag tag,HolderLookup.Provider registries){super.saveAdditional(tag,registries);tag.put("items",items.serializeNBT(registries));tag.put("energy",energy.serializeNBT(registries));tag.putInt("progress",progress);}
     @Override protected void loadAdditional(CompoundTag tag,HolderLookup.Provider registries){super.loadAdditional(tag,registries);if(tag.contains("items"))items.deserializeNBT(registries,tag.getCompound("items"));if(tag.contains("energy"))energy.deserializeNBT(registries,tag.get("energy"));progress=tag.getInt("progress");}
-    @Override public int getContainerSize(){return 9;} @Override public boolean isEmpty(){for(int i=0;i<9;i++)if(!items.getStackInSlot(i).isEmpty())return false;return true;}
+    @Override public int getContainerSize(){return 10;} @Override public boolean isEmpty(){for(int i=0;i<10;i++)if(!items.getStackInSlot(i).isEmpty())return false;return true;}
     @Override public ItemStack getItem(int slot){return items.getStackInSlot(slot);} @Override public ItemStack removeItem(int slot,int amount){return items.extractItem(slot,amount,false);}
     @Override public ItemStack removeItemNoUpdate(int slot){ItemStack s=items.getStackInSlot(slot);items.setStackInSlot(slot,ItemStack.EMPTY);return s;} @Override public void setItem(int slot,ItemStack stack){items.setStackInSlot(slot,stack);}
     @Override public boolean stillValid(Player player){return !isRemoved()&&player.distanceToSqr(worldPosition.getX()+0.5,worldPosition.getY()+0.5,worldPosition.getZ()+0.5)<=64.0;}
-    @Override public void clearContent(){for(int i=0;i<9;i++)items.setStackInSlot(i,ItemStack.EMPTY);} @Override public boolean canPlaceItem(int slot,ItemStack stack){return items.isItemValid(slot,stack);}
+    @Override public void clearContent(){for(int i=0;i<10;i++)items.setStackInSlot(i,ItemStack.EMPTY);} @Override public boolean canPlaceItem(int slot,ItemStack stack){return items.isItemValid(slot,stack);}
     @Override public Component getDisplayName(){return Component.translatable("container.tacz_ammo_press.ammo_press");}
-    @Override public AbstractContainerMenu createMenu(int id,Inventory inventory,Player player){return new DispenserMenu(id,inventory,this);}
+    public ContainerData dataAccess(){return new ContainerData(){
+        @Override public int get(int index){return switch(index){case 0->progress;case 1->energy.getEnergyStored();case 2->energy.getMaxEnergyStored();default->0;};}
+        @Override public void set(int index,int value){if(index==0)progress=value;}
+        @Override public int getCount(){return 3;}
+    };}
+    @Override public AbstractContainerMenu createMenu(int id,Inventory inventory,Player player){return new AmmoPressMenu(id,inventory,this,dataAccess());}
 }
